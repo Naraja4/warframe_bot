@@ -1,9 +1,12 @@
+from asyncio import tasks
 import requests
-import urllib3, discord
+import urllib3, discord, json
+from discord.ext import tasks
+
 urllib3.disable_warnings()
 
 #discord bot token
-TOKEN = '
+TOKEN = ''
 
 def requestShellShockData():
     URL='https://api.warframe.market/v1/items/shell_shock/orders'
@@ -24,6 +27,11 @@ def requestItemDrop(type):
    URL="https://api.warframestat.us/drops/search/"+type
    response=requests.get(URL, verify=False)
    return response.json()
+
+def requestfissureData():
+    URL='https://api.warframestat.us/pc/fissures'
+    response=requests.get(URL, verify=False)
+    return response.json()
 
 def reliclist(type):
     axiList=requestRelicsData(type)
@@ -223,7 +231,50 @@ async def on_message(message):
             await channel.send('NOT vaulted')
         else:
             await channel.send('Vaulted')
-        
 
+@tasks.loop(seconds=10)
+async def fissure():
+    with open('fisuras.json', "rb") as f: 
+        data = json.load(f)
+    
+    channel = await client.fetch_channel(981292041529073700)
+    t=requestfissureData()
+    temp=[]
+
+    for i in range(len(t)):
+        temp.append(t[i]['nodeKey'])
+        if t[i]['nodeKey'] not in data:
+            if t[i]['missionKey']=='Disruption' and t[i]['isStorm']==False:
+                msg='Hay una disrupción **'+t[i]['tier']+'**.'+' Termina en: **'+t[i]['eta']+'**.'
+                await channel.send(msg)
+                data.append(t[i]['nodeKey'])
+                with open("fisuras.json", "w") as jsonFile:
+                    json.dump(data,jsonFile)
+
+            elif t[i]['missionKey']=='Capture' and t[i]['isStorm']==False:
+                msg='Hay una captura **'+t[i]['tier']+'** en **'+t[i]['nodeKey']+'**.'+' Termina en: **'+t[i]['eta']+'**.'
+                await channel.send(msg)
+                data.append(t[i]['nodeKey'])
+                with open("fisuras.json", "w") as jsonFile:
+                    json.dump(data,jsonFile)
+
+            elif t[i]['missionKey']=='Extermination' and t[i]['isStorm']==False:
+                msg='Hay un exterminio **'+t[i]['tier']+'** en **'+t[i]['nodeKey']+'**.'+' Termina en: **'+t[i]['eta']+'**.'
+                await channel.send(msg)
+                data.append(t[i]['nodeKey'])
+                with open("fisuras.json", "w") as jsonFile:
+                    json.dump(data,jsonFile)
+    
+    for node in data:
+        if node not in temp:
+            msg='La fisura **'+node+'** ha terminado.'
+            await channel.send(msg)
+            data.remove(node)
+            with open("fisuras.json", "w") as jsonFile:
+                json.dump(data,jsonFile)
+
+
+fissure.start()
+        
 
 client.run(TOKEN)
